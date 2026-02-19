@@ -83,25 +83,48 @@ public class LineBotMessageEventController {
         log.info("Postback event: {}", event);
         String data = event.postback().data();
         String replyToken = event.replyToken();
+        Map<String, String> params = parseQueryParams(data);
 
-        if (data != null && data.startsWith("action=save")) {
-            Map<String, String> params = parseQueryParams(data);
-            String targetId = params.get("targetId");
-            String content = params.get("content");
-            String senderId = event.source().userId();
+        // ตรวจสอบว่ามี Key 'action' หรือไม่
+        String action = params.get("action");
+        if (action == null) return;
 
-            try {
-                // เรียก Service เพื่อ Parse วันเวลา และบันทึกลง DB (เป็น UTC)
-                reminderService.saveReminder(senderId, targetId, content);
-
-                TextMessage response = new TextMessage("✅ บันทึกสำเร็จ! จะเตือนให้ตามเวลาที่ระบุครับ");
-                messagingApiClient.replyMessage(new ReplyMessageRequest(replyToken, List.of(response), false));
-            } catch (Exception e) {
-                log.error("Save reminder failed", e);
-                TextMessage error = new TextMessage("❌ บันทึกไม่สำเร็จ: รูปแบบวันเวลาไม่ถูกต้อง (ตัวอย่าง: 23/03/2569 14:45)");
-                messagingApiClient.replyMessage(new ReplyMessageRequest(replyToken, List.of(error), false));
+        switch (action) {
+            case "save" -> {
+                // Logic สำหรับการบันทึก Reminder ใหม่ (จาก Quick Reply)
+                handleSaveReminderAction(event, params, replyToken);
             }
+            case "done", "snooze", "cancel" -> {
+                // Logic สำหรับการตอบสนองต่อการแจ้งเตือน (จาก Flex Message ใน Scheduler)
+                handleUpdateReminderStatusAction(event, params, replyToken);
+            }
+            default -> log.warn("Unknown action: {}", action);
         }
+
+    }
+
+    private void handleSaveReminderAction(PostbackEvent event, Map<String, String> params, String replyToken) {
+        String targetId = params.get("targetId");
+        String content = params.get("content");
+        String senderId = event.source().userId();
+
+        reminderService.saveReminder(senderId, targetId, content);
+
+        messagingApiClient.replyMessage(new ReplyMessageRequest(
+                replyToken, List.of(new TextMessage("✅ บันทึกสำเร็จ!")), false
+        ));
+    }
+
+    private void handleUpdateReminderStatusAction(PostbackEvent event, Map<String, String> params, String replyToken) {
+        UUID reminderId = UUID.fromString(params.get("id"));
+        String action = params.get("action");
+
+        // Logic อัปเดตสถานะ (DONE, SNOOZE, CANCEL) ที่เราคุยกันก่อนหน้า
+        reminderService.updateStatus(reminderId, action);
+
+        messagingApiClient.replyMessage(new ReplyMessageRequest(
+                replyToken, List.of(new TextMessage("รับทราบครับ!")), false
+        ));
     }
 
     // Helper method สำหรับช่วยแกะ String data

@@ -4,6 +4,9 @@ import com.kt.cfreminder.entity.Reminder;
 import com.kt.cfreminder.enums.LineBotCommand;
 import com.kt.cfreminder.enums.ReminderTaskStatus;
 import com.kt.cfreminder.repository.ReminderRepository;
+import com.linecorp.bot.messaging.client.MessagingApiClient;
+import com.linecorp.bot.messaging.model.ReplyMessageRequest;
+import com.linecorp.bot.messaging.model.TextMessage;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -12,6 +15,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +24,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ReminderService {
     private final ReminderRepository reminderRepository;
+    private final MessagingApiClient messagingApiClient;
 
     public void saveReminder(String senderId, String targetId, String content) {
         // 1. ล้างคำสั่งออก (จำ จ่ายค่าประกัน 23/03/2569 14:45 -> จ่ายค่าประกัน 23/03/2569 14:45)
@@ -53,6 +59,37 @@ public class ReminderService {
         } else {
             throw new IllegalArgumentException("Invalid date format");
         }
+    }
+
+    public void updateStatus(UUID reminderId, String replyToken, String action){
+        reminderRepository.findById(reminderId).ifPresent(reminder -> {
+            switch (action) {
+                case "done" -> {
+                    reminder.setStatus(ReminderTaskStatus.DONE.name());
+                    reminder.setUpdatedBy("USER_DONE");
+                }
+                case "cancel" -> {
+                    reminder.setStatus(ReminderTaskStatus.REJECT.name());
+                    reminder.setUpdatedBy("USER_CANCEL");
+                }
+                case "snooze" -> {
+                    // เลื่อนไปอีก 15 นาทีจาก "เวลาปัจจุบัน" และเปลี่ยนกลับเป็น PENDING
+                    LocalDateTime newTime = LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(30);
+                    reminder.setRemindAt(newTime);
+                    reminder.setStatus(ReminderTaskStatus.PENDING.name());
+                    reminder.setSnoozeCount(reminder.getSnoozeCount() + 1);
+                    reminder.setUpdatedBy("USER_SNOOZE");
+                }
+            }
+            reminderRepository.save(reminder);
+        });
+
+        // ส่งข้อความยืนยันสั้นๆ (ไม่จำเป็นต้องยาว เพราะ User เห็น displayText จากปุ่มแล้ว)
+        messagingApiClient.replyMessage(new ReplyMessageRequest(
+                replyToken,
+                List.of(new TextMessage("ระบบดำเนินการอัปเดตสถานะให้แล้วครับ")),
+                false
+        ));
     }
 
     @NotNull
