@@ -44,6 +44,7 @@ public class LineBotFollowEventController {
             user.setDisplayName(displayName);
             user.setPictureUrl(pictureUrl);
             user.setCreatedBy(SYSTEM);
+            user.setCreatedAt(Instant.now());
             user.setUpdatedAt(Instant.now());
             user.setStatus(FollowedUserStatus.FOLLOW.name()); // เก็บสถานะไว้เผื่อเขา Block ในอนาคต
 

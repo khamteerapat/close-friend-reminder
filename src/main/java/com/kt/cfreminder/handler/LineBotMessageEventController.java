@@ -4,6 +4,7 @@ import com.kt.cfreminder.entity.FollowedUser;
 import com.kt.cfreminder.enums.FollowedUserStatus;
 import com.kt.cfreminder.enums.LineBotCommand;
 import com.kt.cfreminder.repository.FollowedUserRepository;
+import com.kt.cfreminder.service.ReminderService;
 import com.linecorp.bot.messaging.client.MessagingApiClient;
 import com.linecorp.bot.messaging.model.*;
 import com.linecorp.bot.spring.boot.handler.annotation.EventMapping;
@@ -22,6 +23,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class LineBotMessageEventController {
     private final MessagingApiClient messagingApiClient;
+    private final ReminderService reminderService;
     private final FollowedUserRepository followedUserRepository;
 
     @EventMapping
@@ -38,24 +40,9 @@ public class LineBotMessageEventController {
 
             if (originalText.startsWith(LineBotCommand.REMIND.getThaiCommand())) {
 
-                List<QuickReplyItem> items = new LinkedList<>();
-                //add owner
-                String ownerData = String.format("action=save&targetId=%s&content=%s",
-                        event.source().userId(), originalText);
-                QuickReplyItem ownerReplyItem = new QuickReplyItem(null,
-                        new PostbackAction(
-                                "ตนเอง", // ชื่อที่แสดงบนปุ่ม (Label)
-                                ownerData,          // ข้อมูลที่จะได้รับใน handlePostback
-                                "เลือกเตือนคนเอง", // ข้อความที่จะเด้งในแชทเมื่อกด
-                                null, null, null
-                        )
-                );
-                items.add(ownerReplyItem);
-
                 List<FollowedUser> allUsers = followedUserRepository.findByStatus(FollowedUserStatus.FOLLOW.name());
 
-                items.addAll(
-                        allUsers.stream().map(user -> {
+                List<QuickReplyItem> items = allUsers.stream().map(user -> {
                             // สร้าง Data สำหรับส่งกลับมาตอนกดปุ่ม (ต้องไม่เกิน 300 ตัวอักษร)
                             // แนะนำให้ส่ง userId ของคนที่จะถูกเตือนกลับมาด้วย
                             String postbackData = String.format("action=save&targetId=%s&content=%s",
@@ -69,8 +56,8 @@ public class LineBotMessageEventController {
                                             null, null, null
                                     )
                             );
-                        }).toList()
-                );
+                        }).toList();
+
 
                 // 3. สร้าง QuickReply object
                 QuickReply quickReply = new QuickReply(items);
@@ -94,31 +81,26 @@ public class LineBotMessageEventController {
     @EventMapping
     public void handlePostbackEvent(PostbackEvent event) {
         log.info("Postback event: {}", event);
-
-        // ใน SDK 9.x ดึง data ผ่าน event.postback().data()
         String data = event.postback().data();
         String replyToken = event.replyToken();
 
         if (data != null && data.startsWith("action=save")) {
-            // 1. แยกข้อมูลจาก data (Query String format)
-            // แนะนำใช้เครื่องมือช่วย Parse หรือตัด String ง่ายๆ:
             Map<String, String> params = parseQueryParams(data);
+            String targetId = params.get("targetId");
+            String content = params.get("content");
+            String senderId = event.source().userId();
 
-            String targetId = params.get("targetId"); // userId ของคนที่จะให้เตือน
-            String content = params.get("content");   // ข้อความ "จำ จ่ายประกัน..."
-            String senderId = event.source().userId(); // userId ของเรา (คนสั่ง)
+            try {
+                // เรียก Service เพื่อ Parse วันเวลา และบันทึกลง DB (เป็น UTC)
+                reminderService.saveReminder(senderId, targetId, content);
 
-            // 2. TODO: เขียน Logic สำหรับบันทึกข้อมูลลง Database
-            // logic: แยกวันเวลาจาก content -> บันทึก record (sender, target, time, message)
-            // reminderService.saveReminder(senderId, targetId, content);
-
-            // 3. ตอบกลับยืนยัน (ฟรี)
-            TextMessage response = new TextMessage("บันทึกสำเร็จ! จะเตือนให้ตามเวลาที่ระบุครับ");
-            messagingApiClient.replyMessage(new ReplyMessageRequest(
-                    replyToken,
-                    List.of(response),
-                    false
-            ));
+                TextMessage response = new TextMessage("✅ บันทึกสำเร็จ! จะเตือนให้ตามเวลาที่ระบุครับ");
+                messagingApiClient.replyMessage(new ReplyMessageRequest(replyToken, List.of(response), false));
+            } catch (Exception e) {
+                log.error("Save reminder failed", e);
+                TextMessage error = new TextMessage("❌ บันทึกไม่สำเร็จ: รูปแบบวันเวลาไม่ถูกต้อง (ตัวอย่าง: 23/03/2569 14:45)");
+                messagingApiClient.replyMessage(new ReplyMessageRequest(replyToken, List.of(error), false));
+            }
         }
     }
 
