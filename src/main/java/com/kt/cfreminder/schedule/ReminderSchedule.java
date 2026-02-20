@@ -88,24 +88,34 @@ public class ReminderSchedule {
         ).build();
 
         // 4. สร้างปุ่ม (FlexButton) - อิงตามแพทเทิร์นเดียวกัน
-        PostbackAction doneAction = new PostbackAction("ทำเสร็จแล้ว", "action=done&id=" + reminderId, "ทำเรียบร้อยแล้วครับ", null, null, null);
-        FlexButton doneBtn = new FlexButton.Builder(doneAction)
-                .style(FlexButton.Style.PRIMARY)
-                .color("#1DB446")
-                .build();
+        FlexButton doneBtn =
+                createButton(
+                        "ทำเสร็จแล้ว",
+                        "action=done&id=" + reminderId,
+                        "ทำเรียบร้อยแล้วครับ",
+                        FlexButton.Style.PRIMARY,
+                        "#1DB446"
+                );
 
         // --- ปุ่มเลื่อนเวลา ---
-        PostbackAction snoozeAction = new PostbackAction("ค่อยเตือนทีหลัง (15น.)", "action=snooze&id=" + reminderId, "เดี๋ยวมาเตือนใหม่นะ", null, null, null);
-        FlexButton snoozeBtn = new FlexButton.Builder(snoozeAction)
-                .style(FlexButton.Style.SECONDARY)
-                .build();
+        FlexButton snoozeBtn =
+                createButton(
+                        "ค่อยเตือนทีหลัง (15น.)",
+                        "action=snooze&id=" + reminderId,
+                        "เดี๋ยวมาเตือนใหม่นะ",
+                        FlexButton.Style.SECONDARY,
+                        null
+                );
 
         // --- ปุ่มยกเลิก ---
-        PostbackAction cancelAction = new PostbackAction("ยกเลิกการเตือน", "action=cancel&id=" + reminderId, "ยกเลิกการเตือนนี้แล้ว", null, null, null);
-        FlexButton cancelBtn = new FlexButton.Builder(cancelAction)
-                .style(FlexButton.Style.LINK)
-                .color("#FF5555")
-                .build();
+        FlexButton cancelBtn =
+                createButton(
+                        "ยกเลิกการเตือน",
+                        "action=cancel&id=" + reminderId,
+                        "ยกเลิกการเตือนนี้แล้ว",
+                        FlexButton.Style.LINK,
+                        "#FF5555"
+                );
 
         // 5. สร้าง FlexBox Footer
         FlexBox footer = new FlexBox.Builder(
@@ -121,5 +131,13 @@ public class ReminderSchedule {
                 .build();
 
         return new FlexMessage("คุณมีแจ้งเตือนใหม่: " + reminder.getMessageContent(), bubble);
+    }
+
+    private FlexButton createButton(String label, String data, String feedback, FlexButton.Style style, String color) {
+        PostbackAction action = new PostbackAction(label, data, feedback, null, null, null);
+        return new FlexButton.Builder(action)
+                .style(style)
+                .color(color)
+                .build();
     }
 }
