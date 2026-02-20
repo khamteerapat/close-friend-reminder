@@ -52,6 +52,7 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - /etc/letsencrypt:/etc/letsencrypt:ro # สำหรับ SSL
+      - ./certbot/www:/var/www/certbot
     networks:
       - app-network
     depends_on:
