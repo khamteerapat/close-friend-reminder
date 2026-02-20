@@ -75,8 +75,8 @@ public class ReminderService {
                         reminder.setUpdatedBy("USER_CANCEL");
                     }
                     case "snooze" -> {
-                        // เลื่อนไปอีก 15 นาทีจาก "เวลาปัจจุบัน" และเปลี่ยนกลับเป็น PENDING
-                        LocalDateTime newTime = LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(1);
+                        // เลื่อนไปอีก 1 ชม จาก "เวลาปัจจุบัน" และเปลี่ยนกลับเป็น PENDING
+                        LocalDateTime newTime = LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(60);
                         reminder.setRemindAt(newTime);
                         reminder.setStatus(ReminderTaskStatus.PENDING.name());
                         reminder.setSnoozeCount(reminder.getSnoozeCount() + 1);
