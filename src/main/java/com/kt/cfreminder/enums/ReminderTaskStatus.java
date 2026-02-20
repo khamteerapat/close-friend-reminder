@@ -2,9 +2,9 @@ package com.kt.cfreminder.enums;
 
 public enum ReminderTaskStatus {
     PENDING,
-    SEND,
+    SENT,
     DONE,
-    REJECT,
+    CANCEL,
     SNOOZE
     ;
 }

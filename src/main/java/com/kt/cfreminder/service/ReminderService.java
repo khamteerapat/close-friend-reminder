@@ -48,6 +48,7 @@ public class ReminderService {
                     .senderId(senderId)
                     .targetId(targetId)
                     .messageContent(message)
+                    .snoozeCount(0)
                     .remindAt(utcTime.toLocalDateTime()) // บันทึกเป็น UTC
                     .status(ReminderTaskStatus.PENDING.name())
                     .build();
@@ -63,33 +64,55 @@ public class ReminderService {
 
     public void updateStatus(UUID reminderId, String replyToken, String action){
         reminderRepository.findById(reminderId).ifPresent(reminder -> {
-            switch (action) {
-                case "done" -> {
-                    reminder.setStatus(ReminderTaskStatus.DONE.name());
-                    reminder.setUpdatedBy("USER_DONE");
+            if(reminder.getStatus().equals(ReminderTaskStatus.SENT.name())){
+                switch (action) {
+                    case "done" -> {
+                        reminder.setStatus(ReminderTaskStatus.DONE.name());
+                        reminder.setUpdatedBy("USER_DONE");
+                    }
+                    case "cancel" -> {
+                        reminder.setStatus(ReminderTaskStatus.CANCEL.name());
+                        reminder.setUpdatedBy("USER_CANCEL");
+                    }
+                    case "snooze" -> {
+                        // เลื่อนไปอีก 15 นาทีจาก "เวลาปัจจุบัน" และเปลี่ยนกลับเป็น PENDING
+                        LocalDateTime newTime = LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(1);
+                        reminder.setRemindAt(newTime);
+                        reminder.setStatus(ReminderTaskStatus.PENDING.name());
+                        reminder.setSnoozeCount(reminder.getSnoozeCount() + 1);
+                        reminder.setUpdatedBy("USER_SNOOZE");
+                    }
                 }
-                case "cancel" -> {
-                    reminder.setStatus(ReminderTaskStatus.REJECT.name());
-                    reminder.setUpdatedBy("USER_CANCEL");
-                }
-                case "snooze" -> {
-                    // เลื่อนไปอีก 15 นาทีจาก "เวลาปัจจุบัน" และเปลี่ยนกลับเป็น PENDING
-                    LocalDateTime newTime = LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(30);
-                    reminder.setRemindAt(newTime);
-                    reminder.setStatus(ReminderTaskStatus.PENDING.name());
-                    reminder.setSnoozeCount(reminder.getSnoozeCount() + 1);
-                    reminder.setUpdatedBy("USER_SNOOZE");
-                }
+                reminderRepository.save(reminder);
+                // ส่งข้อความยืนยันสั้นๆ (ไม่จำเป็นต้องยาว เพราะ User เห็น displayText จากปุ่มแล้ว)
+                messagingApiClient.replyMessage(new ReplyMessageRequest(
+                        replyToken,
+                        List.of(new TextMessage("ระบบดำเนินการอัปเดตสถานะให้แล้วครับ")),
+                        false
+                ));
+            }else{
+                // ส่งข้อความยืนยันสั้นๆ (ไม่จำเป็นต้องยาว เพราะ User เห็น displayText จากปุ่มแล้ว)
+                String replyStatus = "คุณ \"%S\" เรียบร้อยแล้วนะครับ";
+                messagingApiClient.replyMessage(new ReplyMessageRequest(
+                        replyToken,
+                        List.of(new TextMessage(String.format(replyStatus,replaceStatusWord(reminder.getStatus())))),
+                        false
+                ));
             }
-            reminderRepository.save(reminder);
+
         });
 
-        // ส่งข้อความยืนยันสั้นๆ (ไม่จำเป็นต้องยาว เพราะ User เห็น displayText จากปุ่มแล้ว)
-        messagingApiClient.replyMessage(new ReplyMessageRequest(
-                replyToken,
-                List.of(new TextMessage("ระบบดำเนินการอัปเดตสถานะให้แล้วครับ")),
-                false
-        ));
+
+    }
+
+    private String replaceStatusWord(String status){
+        String statusWord = "";
+        switch (status){
+            case "DONE" -> statusWord = "ทำเสร็จ";
+            case "CANCEL" -> statusWord = "ยกเลิกแจ้งเตือน";
+            case "PENDING" -> statusWord = "เลื่อนการเตือน";
+        }
+        return statusWord;
     }
 
     @NotNull

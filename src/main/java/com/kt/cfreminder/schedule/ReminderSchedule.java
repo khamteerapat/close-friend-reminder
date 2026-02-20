@@ -1,6 +1,7 @@
 package com.kt.cfreminder.schedule;
 
 import com.kt.cfreminder.entity.Reminder;
+import com.kt.cfreminder.enums.ReminderTaskStatus;
 import com.kt.cfreminder.repository.ReminderRepository;
 import com.linecorp.bot.messaging.client.MessagingApiClient;
 import com.linecorp.bot.messaging.model.*;
@@ -29,7 +30,7 @@ public class ReminderSchedule {
         LocalDateTime nowUtc = LocalDateTime.now(ZoneId.of("UTC"));
 
         // 1. ดึง Task ที่เป็น PENDING และถึงเวลาแล้ว
-        List<Reminder> dueReminders = reminderRepository.findByStatusAndRemindAtBefore("PENDING", nowUtc);
+        List<Reminder> dueReminders = reminderRepository.findByStatusAndRemindAtBefore(ReminderTaskStatus.PENDING.name(), nowUtc);
 
         for (Reminder reminder : dueReminders) {
             try {
@@ -50,7 +51,7 @@ public class ReminderSchedule {
                 messagingApiClient.pushMessage(retryKey, pushRequest).get(); // .get() เพื่อรอผลแบบ Sync (ใน Scheduler)
 
                 // 4. อัปเดตสถานะ
-                reminder.setStatus("SENT");
+                reminder.setStatus(ReminderTaskStatus.SENT.name());
                 reminderRepository.save(reminder);
 
                 log.info("Sent with Retry-Key: {}", retryKey);

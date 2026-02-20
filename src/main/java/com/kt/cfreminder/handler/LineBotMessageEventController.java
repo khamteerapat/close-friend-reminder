@@ -96,7 +96,7 @@ public class LineBotMessageEventController {
             }
             case "done", "snooze", "cancel" -> {
                 // Logic สำหรับการตอบสนองต่อการแจ้งเตือน (จาก Flex Message ใน Scheduler)
-                handleUpdateReminderStatusAction(event, params, replyToken);
+                handleUpdateReminderStatusAction( params, replyToken);
             }
             default -> log.warn("Unknown action: {}", action);
         }
@@ -115,16 +115,13 @@ public class LineBotMessageEventController {
         ));
     }
 
-    private void handleUpdateReminderStatusAction(PostbackEvent event, Map<String, String> params, String replyToken) {
+    private void handleUpdateReminderStatusAction( Map<String, String> params, String replyToken) {
         UUID reminderId = UUID.fromString(params.get("id"));
         String action = params.get("action");
 
         // Logic อัปเดตสถานะ (DONE, SNOOZE, CANCEL) ที่เราคุยกันก่อนหน้า
-        reminderService.updateStatus(reminderId, action);
+        reminderService.updateStatus(reminderId, replyToken, action);
 
-        messagingApiClient.replyMessage(new ReplyMessageRequest(
-                replyToken, List.of(new TextMessage("รับทราบครับ!")), false
-        ));
     }
 
     // Helper method สำหรับช่วยแกะ String data
