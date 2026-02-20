@@ -20,8 +20,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
+    expose:
+      - "8080"
     networks:
       - app-network
 
@@ -41,23 +43,15 @@ services:
     networks:
       - app-network
 
-  wiremock:
-    image: wiremock/wiremock:3.5.2
-    container_name: wiremock-server
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
     ports:
-      - "9090:8080"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./wiremock:/home/wiremock
-    networks:
-      - app-network
-
-  newman:
-    image: postman/newman:alpine
-    container_name: newman-runner
-    volumes:
-      - ./postman:/etc/newman
-    command: >
-      run /etc/newman/TransactionProcessor.postman_collection --environment /etc/newman/local.postman_environment.json --reporters cli
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt # สำหรับ SSL
     networks:
       - app-network
     depends_on:
