@@ -101,7 +101,7 @@ public class ReminderSchedule {
         // --- ปุ่มเลื่อนเวลา ---
         FlexButton snoozeBtn =
                 createButton(
-                        "ค่อยเตือนทีหลัง (15น.)",
+                        "ค่อยเตือนทีหลัง (1 ชม.)",
                         "action=snooze&id=" + reminderId,
                         "เดี๋ยวมาเตือนใหม่นะ",
                         FlexButton.Style.SECONDARY,
