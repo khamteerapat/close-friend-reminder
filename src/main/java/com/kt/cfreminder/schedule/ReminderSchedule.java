@@ -121,7 +121,8 @@ public class ReminderSchedule {
         // 5. สร้าง FlexBox Footer
         FlexBox footer = new FlexBox.Builder(
                 FlexBox.Layout.VERTICAL,
-                List.of(doneBtn, snoozeBtn, cancelBtn)
+//                List.of(doneBtn, snoozeBtn, cancelBtn)
+                List.of(snoozeBtn)
         ).spacing("sm").build();
 
         // 6. ประกอบเป็น Bubble
