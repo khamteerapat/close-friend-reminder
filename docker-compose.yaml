@@ -14,6 +14,11 @@ services:
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: P@ssw0rd
       TZ: Asia/Bangkok
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+    deploy:
+      resources:
+        limits:
+          memory: 600M
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 10s
@@ -36,7 +41,12 @@ services:
       POSTGRES_PASSWORD: P@ssw0rd
       TZ: Asia/Bangkok
     ports:
+      # - "127.0.0.1:5432:5432"
       - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db_script:/docker-entrypoint-initdb.d
