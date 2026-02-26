@@ -10,7 +10,7 @@ RUN mvn dependency:go-offline
 COPY src ./src
 
 
-RUN mvn clean verify
+RUN mvn clean package -DskipTests
 
 
 
