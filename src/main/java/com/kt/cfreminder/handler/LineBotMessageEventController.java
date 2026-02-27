@@ -6,6 +6,7 @@ import com.kt.cfreminder.enums.LineBotCommand;
 import com.kt.cfreminder.repository.FollowedUserRepository;
 import com.kt.cfreminder.service.GeminiService;
 import com.kt.cfreminder.service.ReminderService;
+import com.kt.cfreminder.utils.DateUtils;
 import com.linecorp.bot.messaging.client.MessagingApiClient;
 import com.linecorp.bot.messaging.model.*;
 import com.linecorp.bot.spring.boot.handler.annotation.EventMapping;
@@ -16,6 +17,7 @@ import com.linecorp.bot.webhook.model.PostbackEvent;
 import com.linecorp.bot.webhook.model.TextMessageContent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.*;
 
@@ -51,11 +53,14 @@ public class LineBotMessageEventController {
             
             เนื่องจากใช้เชื่อมต่อกับ api springboot และรับ response จาก text โดยตรง จึงอยากให้ตอบกลับมาแค่ command เท่านั้น โดยไม่ต้องมี double quote ตอนตอบกลับ
             
-            นี่คือข้อความจาก user
+            นี่คือข้อความจาก user และขอกำหนดให้เวลาปัจจุบันคือ %s
             
             User : "%s"
             
             """;
+
+    @Value("${app.timezone}")
+    private String timezone;
 
     private final MessagingApiClient messagingApiClient;
     private final ReminderService reminderService;
@@ -74,7 +79,7 @@ public class LineBotMessageEventController {
             String originalText = textContent.text();
             String replyToken = event.replyToken();
 
-            String command = geminiService.getGeminiResponse(String.format(PROMPT_TEMPLATE, originalText));
+            String command = geminiService.getGeminiResponse(String.format(PROMPT_TEMPLATE, DateUtils.getCurrentDateTimeThai(timezone), originalText));
 
 
             if (command != null && command.startsWith(LineBotCommand.REMIND.getThaiCommand())) {
