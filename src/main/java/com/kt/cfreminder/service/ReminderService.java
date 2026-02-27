@@ -27,29 +27,31 @@ public class ReminderService {
     private final MessagingApiClient messagingApiClient;
 
     public void saveReminder(String senderId, String targetId, String content) {
-        // 1. ล้างคำสั่งออก (จำ จ่ายค่าประกัน 23/03/2569 14:45 -> จ่ายค่าประกัน 23/03/2569 14:45)
-        String cleanContent = content.replaceFirst("(?i)" + LineBotCommand.REMIND.getThaiCommand(), "").trim();
-
-        // 2. Regex สำหรับดึงวันเวลา (DD/MM/YYYY HH:mm)
-        Pattern pattern = Pattern.compile("(\\d{1,2})/(\\d{1,2})/(\\d{4})\\s+(\\d{1,2}):(\\d{1,2})");
-        Matcher matcher = pattern.matcher(cleanContent);
+        // 1. Regex ใหม่:
+        // กลุ่ม 1: \"([^\"]+)\" -> จับข้อความที่อยู่ในเครื่องหมายคำพูด
+        // กลุ่ม 2: (\\d{1,2}/\\d{1,2}/\\d{4}\\s+\\d{1,2}:\\d{1,2}) -> จับรูปแบบวันเวลา
+        Pattern pattern = Pattern.compile("'([^']+)'\\s+(\\d{1,2})/(\\d{1,2})/(\\d{4})\\s+(\\d{1,2}):(\\d{1,2})");
+        Matcher matcher = pattern.matcher(content);
 
         if (matcher.find()) {
+            // ดึงข้อความจากกลุ่มที่ 1 (ในเครื่องหมายคำพูด)
+            String message = matcher.group(1).trim();
+
+            // ดึงวันเวลาจากกลุ่มที่ 2
+
+            // สร้าง Pattern ย่อยเพื่อ Parse วันเวลา (หรือส่งตัวแปร dateTimeStr ไปที่ getLocalDateTime)
             LocalDateTime localDateTime = getLocalDateTime(matcher);
+
             ZonedDateTime thaiTime = localDateTime.atZone(ZoneId.of("Asia/Bangkok"));
             ZonedDateTime utcTime = thaiTime.withZoneSameInstant(ZoneId.of("UTC"));
 
-            // ข้อความที่จะใช้เตือน (ตัดส่วนวันเวลาออก)
-            String message = cleanContent.replace(matcher.group(0), "").trim();
-            if (message.isEmpty()) message = "แจ้งเตือนจ้า!";
-
-            // 4. บันทึกลง DB
+            // 2. บันทึกลง DB
             Reminder reminder = Reminder.builder()
                     .senderId(senderId)
                     .targetId(targetId)
                     .messageContent(message)
                     .snoozeCount(0)
-                    .remindAt(utcTime.toLocalDateTime()) // บันทึกเป็น UTC
+                    .remindAt(utcTime.toLocalDateTime())
                     .status(ReminderTaskStatus.PENDING.name())
                     .build();
 
@@ -58,7 +60,8 @@ public class ReminderService {
 
             reminderRepository.save(reminder);
         } else {
-            throw new IllegalArgumentException("Invalid date format");
+            // กรณีรูปแบบไม่ตรง เช่น ลืมใส่เครื่องหมายคำพูด หรือลืมใส่วันที่
+            throw new IllegalArgumentException("รูปแบบคำสั่งไม่ถูกต้อง กรุณาใช้: เตือน \"ข้อความ\" DD/MM/YYYY HH:mm");
         }
     }
 
@@ -117,16 +120,22 @@ public class ReminderService {
 
     @NotNull
     private static LocalDateTime getLocalDateTime(Matcher matcher) {
-        int day = Integer.parseInt(matcher.group(1));
-        int month = Integer.parseInt(matcher.group(2));
-        int year = Integer.parseInt(matcher.group(3));
-        int hour = Integer.parseInt(matcher.group(4));
-        int minute = Integer.parseInt(matcher.group(5));
+        // หมายเหตุ: matcher.group(1) คือ "ข้อความในเครื่องหมายคำพูด"
+        // ดังนั้น วัน/เดือน/ปี จะเริ่มที่ group 2 เป็นต้นไป
 
-        // แปลง พ.ศ. -> ค.ศ.
-        if (year > 2500) year -= 543;
+        // Pattern ใหม่: "([^"]+)"\s+(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{1,2})
+        int day    = Integer.parseInt(matcher.group(2));
+        int month  = Integer.parseInt(matcher.group(3));
+        int year   = Integer.parseInt(matcher.group(4));
+        int hour   = Integer.parseInt(matcher.group(5));
+        int minute = Integer.parseInt(matcher.group(6));
 
-        // 3. จัดการเรื่อง Timezone: ไทย (GMT+7) -> UTC
+        // แปลง พ.ศ. -> ค.ศ. (กันพลาดเผื่อคนกรอกปี ค.ศ. มาอยู่แล้ว)
+        if (year > 2500) {
+            year -= 543;
+        }
+
         return LocalDateTime.of(year, month, day, hour, minute);
     }
+
 }

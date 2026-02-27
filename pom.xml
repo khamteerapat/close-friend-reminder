@@ -77,6 +77,21 @@
 			<version>9.14.0</version>
 		</dependency>
 		<dependency>
+			<groupId>com.google.genai</groupId>
+			<artifactId>google-genai</artifactId>
+			<version>1.41.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.squareup.okhttp3</groupId>
+					<artifactId>okhttp</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.squareup.okio</groupId>
+					<artifactId>okio-jvm</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 			<version>4.0.2</version>
