@@ -84,11 +84,11 @@ public class LineBotMessageEventController {
             String originalText = textContent.text();
             String replyToken = event.replyToken();
 
-            String promptString = String.format(PROMPT_TEMPLATE, DateUtils.getCurrentDateTimeThai(timezone), originalText);
+            String currentDateStr = DateUtils.getCurrentDateTimeThai(timezone);
 
-            log.info("Argument CurrentDate : {}, InputText : {}", promptString, originalText );
+            log.info("Argument CurrentDate : {}, InputText : {}", currentDateStr, originalText );
 
-            String command = geminiService.getGeminiResponse(promptString);
+            String command = geminiService.getGeminiResponse(String.format(PROMPT_TEMPLATE, currentDateStr, originalText));
 
             log.info("Gemini Response : {}", command);
 
