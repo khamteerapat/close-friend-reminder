@@ -45,7 +45,12 @@ public class LineBotMessageEventController {
             
             [ตัวอย่างที่ 3] ยังพอเดาช่วงเวลาที่แน่ชัดได้ <วันที่ปัจจุบัน + 1> เวลาราชการ 08:30
             User : "ช่วยเตือนหน่อยพรุ่งนี้ต้องไปติดต่อราชการ"
-            คำตอบที่ควรได้ : "เตือน 'ติดต่อราชการ' 25/02/2569 08:00" **สมมติวันที่ปัจจุบันคือ 24/02/2569
+            คำตอบที่ควรได้ : "เตือน 'ติดต่อราชการ' 01/03/2569 08:00" **สมมติวันที่ปัจจุบันคือ 28/02/2569
+            กฎสำคัญเกี่ยวกับวันที่
+            - ต้องตรวจสอบว่าปี พ.ศ. นั้นมีวันที่นั้นจริง
+            - ปีที่ไม่ใช่ leap year จะไม่มีวันที่ 29 กุมภาพันธ์
+            - ถ้าวันที่ไม่ถูกต้อง ให้เลื่อนไปวันที่ที่ถูกต้องถัดไป
+            ห้ามสร้างวันที่ที่ไม่มีอยู่จริง เช่น 29 กุมภาพันธ์ ในปีที่ไม่ใช่ leap year
             
             [ตัวอย่างที่ 4] ไม่สามารถวิเคราะห์ได้ ขาด context ขาดเวลาที่แน่ชัด
             User : "อย่าลืมเตือนด้วยนะพรุ่งนี้"
@@ -81,7 +86,7 @@ public class LineBotMessageEventController {
 
             String promptString = String.format(PROMPT_TEMPLATE, DateUtils.getCurrentDateTimeThai(timezone), originalText);
 
-            log.info("Prompt Request : {}", promptString );
+            log.info("Argument CurrentDate : {}, InputText : {}", promptString, originalText );
 
             String command = geminiService.getGeminiResponse(promptString);
 

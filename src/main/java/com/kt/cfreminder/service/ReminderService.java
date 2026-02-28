@@ -11,10 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -61,7 +58,7 @@ public class ReminderService {
             reminderRepository.save(reminder);
         } else {
             // กรณีรูปแบบไม่ตรง เช่น ลืมใส่เครื่องหมายคำพูด หรือลืมใส่วันที่
-            throw new IllegalArgumentException("รูปแบบคำสั่งไม่ถูกต้อง กรุณาใช้: เตือน \"ข้อความ\" DD/MM/YYYY HH:mm");
+            throw new IllegalArgumentException("รูปแบบคำสั่งไม่ถูกต้อง กรุณาใช้: เตือน 'ข้อความ' DD/MM/YYYY HH:mm");
         }
     }
 
@@ -135,7 +132,28 @@ public class ReminderService {
             year -= 543;
         }
 
-        return LocalDateTime.of(year, month, day, hour, minute);
+        // fix เวลา
+        hour = Math.max(0, Math.min(hour, 23));
+        minute = Math.max(0, Math.min(minute, 59));
+
+        // ปรับเดือน
+        if (month < 1) month = 1;
+        if (month > 12) month = 12;
+
+        YearMonth yearMonth = YearMonth.of(year, month);
+        int maxDay = yearMonth.lengthOfMonth();
+
+        LocalDate date;
+
+        if (day <= maxDay) {
+            date = LocalDate.of(year, month, day);
+        } else {
+            // overflow → ดันไปเดือนถัดไป
+            date = LocalDate.of(year, month, maxDay)
+                    .plusDays(day - maxDay);
+        }
+
+        return LocalDateTime.of(date, LocalTime.of(hour, minute));
     }
 
 }
