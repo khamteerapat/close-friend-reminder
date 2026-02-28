@@ -79,8 +79,13 @@ public class LineBotMessageEventController {
             String originalText = textContent.text();
             String replyToken = event.replyToken();
 
-            String command = geminiService.getGeminiResponse(String.format(PROMPT_TEMPLATE, DateUtils.getCurrentDateTimeThai(timezone), originalText));
+            String promptString = String.format(PROMPT_TEMPLATE, DateUtils.getCurrentDateTimeThai(timezone), originalText);
 
+            log.info("Prompt Request : {}", promptString );
+
+            String command = geminiService.getGeminiResponse(promptString);
+
+            log.info("Gemini Response : {}", command);
 
             if (command != null && command.startsWith(LineBotCommand.REMIND.getThaiCommand())) {
                 List<FollowedUser> allUsers = followedUserRepository.findByStatus(FollowedUserStatus.FOLLOW.name());
