@@ -2,6 +2,7 @@ package com.kt.cfreminder.utils;
 
 import lombok.experimental.UtilityClass;
 
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.chrono.ThaiBuddhistDate;
@@ -29,5 +30,9 @@ public class DateUtils {
         String time = TIME_FORMAT.format(now);
 
         return date + " " + time;
+    }
+
+    public String formatBuddhistDate(LocalDate date) {
+        return DATE_FORMAT.format(ThaiBuddhistDate.from(date));
     }
 }
