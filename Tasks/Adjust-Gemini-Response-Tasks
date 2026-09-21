@@ -1,0 +1,285 @@
+Task: Investigate and implement Gemini Structured JSON Output for CFReminder
+
+Context:
+This is a Spring Boot LINE Reminder Bot application that uses Google's Gemini API
+with the model gemini-2.5-flash.
+
+Currently, the application sends a prompt to Gemini to convert natural Thai
+language into a reminder command.
+
+Example user input:
+เตือนหน่อย วันนี้ 17:47 ให้กินยา
+
+Expected output (assuming current date is 21/09/2569):
+เตือน 'กินยา' 21/09/2569 17:47
+
+The current implementation expects Gemini to return a plain-text command
+and processes that response directly.
+
+However, Gemini occasionally returns unexpected content, such as Python code
+or Markdown, instead of the expected reminder command.
+
+We want to improve reliability by using Gemini Structured JSON Output
+and letting Java handle the final command formatting.
+
+IMPORTANT:
+Do not implement immediately.
+Investigate the existing implementation first, then implement the smallest
+necessary changes based on the actual project structure.
+
+--------------------------------------------------
+PHASE 1: INVESTIGATION
+--------------------------------------------------
+
+Inspect the existing codebase and identify:
+
+1. Which Google Gemini Java SDK is currently used.
+   - SDK name and version.
+   - How the Gemini client is initialized.
+   - Where the model name is configured.
+
+2. Where the Gemini prompt is constructed.
+   - Locate the existing reminder prompt.
+   - Identify how current date/time and user messages are injected.
+
+3. Where Gemini is called.
+   - Identify the service responsible for calling Gemini.
+   - Inspect the existing GenerateContentConfig, if any.
+   - Check whether responseMimeType and responseSchema are supported
+     by the installed SDK version.
+
+4. Where Gemini responses are processed.
+   - Identify where the plain-text reminder command is consumed.
+   - Trace the flow from LINE webhook to reminder creation.
+   - Identify existing validation and error handling.
+
+5. Identify existing tests related to Gemini and reminder parsing.
+
+After investigation, provide a concise summary of:
+- Current implementation flow.
+- Files that need modification.
+- Proposed minimal changes.
+- Any compatibility concerns.
+
+Do not refactor unrelated functionality.
+
+--------------------------------------------------
+PHASE 2: IMPLEMENT STRUCTURED JSON OUTPUT
+--------------------------------------------------
+
+Modify the existing Gemini integration to use Structured JSON Output.
+
+Use the appropriate configuration supported by the installed Google SDK.
+
+Prefer the official Gemini responseSchema mechanism if available.
+
+Expected Gemini JSON response:
+
+Successful parsing:
+
+{
+  "success": true,
+  "message": "กินยา",
+  "date": "2026-09-21",
+  "time": "17:47"
+}
+
+Failed parsing:
+
+{
+  "success": false,
+  "message": "",
+  "date": "",
+  "time": ""
+}
+
+JSON Contract:
+
+success:
+- Boolean.
+- Indicates whether the reminder can be interpreted successfully.
+
+message:
+- String.
+- Reminder message extracted from the user's input.
+- Preserve the original message when explicitly enclosed in single quotes.
+- Otherwise, summarize the reminder message without changing its meaning.
+
+date:
+- String.
+- ISO-8601 date format: yyyy-MM-dd.
+- Always use Gregorian year (ค.ศ.), NOT Buddhist year (พ.ศ.).
+- Resolve relative dates using the current date provided by the application.
+- Interpret date/time in Asia/Bangkok timezone.
+
+time:
+- String.
+- 24-hour HH:mm format.
+- No timezone suffix.
+
+IMPORTANT:
+Gemini must return JSON only.
+Do not rely solely on prompt instructions to enforce JSON.
+Use SDK-level structured output configuration where supported.
+
+--------------------------------------------------
+PHASE 3: UPDATE PROMPT
+--------------------------------------------------
+
+Update the existing reminder prompt to match the new JSON contract.
+
+Preserve existing business rules:
+
+1. Convert natural Thai language into reminder information.
+2. Support Thai month names and abbreviations.
+3. Support Buddhist calendar years.
+4. Support relative dates such as วันนี้ and พรุ่งนี้.
+5. Support Thai informal time expressions.
+6. Preserve explicitly quoted reminder messages.
+7. Validate calendar dates, including leap years.
+8. If a date is invalid, advance to the next valid date.
+9. Infer reasonable time when sufficient context exists.
+10. Return success=false when the reminder message or required
+    date/time information cannot be interpreted.
+
+Important:
+The model must return Gregorian ISO dates in JSON.
+Java will handle conversion to Buddhist year for the final command.
+
+Keep the prompt concise and focused on extracting reminder information.
+Remove unnecessary instructions related to formatting the old plain-text command.
+
+--------------------------------------------------
+PHASE 4: JAVA RESPONSE HANDLING
+--------------------------------------------------
+
+Create or reuse an appropriate DTO for Gemini's JSON response.
+
+Example:
+
+public record ReminderAiResponse(
+    boolean success,
+    String message,
+    String date,
+    String time
+) {}
+
+Use the existing JSON library in the project, preferably Jackson.
+
+Deserialize Gemini's JSON response into the DTO.
+
+Validate the parsed response:
+
+- JSON must be valid.
+- success must be present.
+- When success=true, message/date/time must be present and non-empty.
+- Date must be a valid ISO LocalDate.
+- Time must be a valid HH:mm LocalTime.
+- Invalid or incomplete responses must not create reminders.
+
+Do not silently invent missing dates or times in Java.
+
+When Gemini returns success=false or response validation fails,
+preserve the application's existing error-handling behavior.
+
+Do not expose raw Gemini responses, stack traces, or exceptions
+to LINE users.
+
+--------------------------------------------------
+PHASE 5: COMMAND FORMATTING
+--------------------------------------------------
+
+Move final reminder command formatting responsibility to Java.
+
+The existing downstream command format must remain unchanged:
+
+เตือน '<message>' dd/MM/yyyy HH:mm
+
+Example:
+
+Gemini JSON:
+
+{
+  "success": true,
+  "message": "กินยา",
+  "date": "2026-09-21",
+  "time": "17:47"
+}
+
+Java output:
+
+เตือน 'กินยา' 21/09/2569 17:47
+
+Requirements:
+
+- Convert Gregorian year to Buddhist year (+543).
+- Zero-pad day and month.
+- Preserve 24-hour time format.
+- Preserve existing single-quote behavior.
+- Do not change the existing reminder persistence contract.
+- Do not change the LINE response format unless necessary.
+
+Reuse existing utilities if available.
+
+--------------------------------------------------
+PHASE 6: TESTING
+--------------------------------------------------
+
+Add or update focused tests covering:
+
+1. Valid Gemini JSON response.
+2. Invalid JSON response.
+3. Missing required fields.
+4. success=false.
+5. Invalid calendar date.
+6. Invalid time.
+7. Gregorian-to-Buddhist year conversion.
+8. Reminder message containing single quotes.
+9. Existing downstream command compatibility.
+
+Test example:
+
+Input:
+เตือนหน่อย วันนี้ 17:47 ให้กินยา
+
+Assumed current date:
+2026-09-21
+
+Expected Gemini JSON:
+{
+  "success": true,
+  "message": "กินยา",
+  "date": "2026-09-21",
+  "time": "17:47"
+}
+
+Expected final Java command:
+เตือน 'กินยา' 21/09/2569 17:47
+
+Use mock Gemini responses for unit tests.
+Do not require actual Gemini API calls for the test suite.
+
+--------------------------------------------------
+CONSTRAINTS
+--------------------------------------------------
+
+- Keep changes minimal and focused.
+- Preserve existing Spring Boot architecture.
+- Preserve existing LINE webhook behavior.
+- Preserve the existing reminder command contract.
+- Do not introduce unnecessary dependencies.
+- Do not change the Gemini model.
+- Do not modify Thinking Budget configuration.
+- Do not introduce a new AI framework.
+- Do not change database schema.
+- Do not refactor unrelated services.
+
+If the installed Google SDK does not support responseSchema,
+investigate the smallest compatible solution before making changes.
+
+After implementation:
+1. Run relevant tests.
+2. Verify compilation.
+3. Summarize changed files.
+4. Explain the old and new response processing flows.
+5. Report any remaining risks or unverified behavior.
